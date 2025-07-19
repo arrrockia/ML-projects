@@ -1,0 +1,53 @@
+import cv2
+import cv2
+import numpy as np
+import time
+from datetime import datetime
+
+cam = cv2.VideoCapture(0)
+motion_detected = False
+motion_start_time = None
+recording = False
+frame_width = int(cam.get(3))
+frame_height = int(cam.get(4))
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+out = None
+output_directory = "D:\python new\python\vid"  
+while cam.isOpened():
+    ret, frame1 = cam.read()
+    ret, frame2 = cam.read()
+    if not ret:
+        break
+    diff = cv2.absdiff(frame1, frame2)
+    gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, thresh = cv2.threshold(blur, 20, 255, cv2.THRESH_BINARY)
+    dilated = cv2.dilate(thresh, None, iterations=3)
+    contours, _ = cv2.findContours(dilated, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    if len(contours) > 0:
+        if not motion_detected:
+            motion_detected = True
+            motion_start_time = time.time()
+        elif time.time() - motion_start_time >= 4:
+            if not recording:
+                print("Movement detected")
+                timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+                output_path = f'{output_directory}movement_{timestamp}.avi'
+                out = cv2.VideoWriter(output_path, fourcc, 10, (frame_width, frame_height))
+                recording = True
+    else:
+        motion_detected = False
+        motion_start_time = None
+        if recording:
+            recording = False
+            out.release()
+
+    if recording:
+        out.write(frame1)
+    cv2.imshow('Motion Detector', diff)
+    if cv2.waitKey(10) == ord('q'):
+        break
+if recording:
+    out.release()
+cam.release()
+cv2.destroyAllWindows()
